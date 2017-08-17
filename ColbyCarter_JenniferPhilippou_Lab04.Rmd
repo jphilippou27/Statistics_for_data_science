@@ -1,0 +1,129 @@
+---
+title: "Lab 4: Reducing Crime"
+subtitle: "w203: Statistics for Data Science"
+author: "Colby Carter & Jennifer Philippou"
+date: "August 22, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width=6, fig.height=4)
+library(BSDA)
+library(car)
+library(effsize)
+library(Hmisc)
+library(lmtest)
+library(sandwich)
+library(stargazer)
+
+require(dplyr)
+#require(foreign)
+require(ggplot2)
+#require(MASS)
+require(Hmisc)
+#require(reshape2)
+#require(pander)
+```
+
+```{r}
+#wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
+wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats")
+raw_data <- read.csv("crime.csv")
+head(raw_data)
+```
+```{r}
+describe(raw_data)
+# no missing values
+# 90 distinct counties
+# only 1987
+# crimes per person: 0.005 to 0.1; right skew, consider sqrt()
+# probability of arrest: 0.09%(?) to 1.09%, right skew
+# probability of conviction: 0.07%(?) to 2.12%, right skew
+# probability of prison: 0.15%(?) to 0.6%, fairly normal
+# avg. sentence: 5 to 20 days w right skew
+# police per capita: extreme outliners at right end
+# tax per cap: right skew with one extreme outlier at right
+# density: .2 to 9 people per sq mile; right skew with one extreme outlier at right
+# west = 23%, central = 38%, urban = 0.8%(!)
+# percent minority (1980): somewhat uniform/slight right tail
+# wage variables: mostly right skew
+# offense mix (face on / other): right skew
+# pct young male: right skew with one extreme outlier at right
+```
+
+```{r}
+par(mfrow = c(1,2))
+hist(raw_data$crmrte, breaks = 30, main = "Crimes per Person")
+hist((raw_data$crmrte)**(1/3), breaks = 30, main = "Sq-Root of Crimes/Person")
+hist(raw_data$prbarr, breaks = 30, main = "Prob. of Arrest")
+hist(raw_data$prbconv, breaks = 30, main = "Prob. of Conviction")
+hist(raw_data$prbpris, breaks = 30, main = "Prob. of Prison")
+hist(raw_data$avgsen, breaks = 30, main = "Avg. Sentence (Days)")
+hist(raw_data$polpc, breaks = 30, main = "Police per Capita")
+hist(raw_data$taxpc, breaks = 30, main = "Tax Rev. per Capita")
+hist(raw_data$density, breaks = 30, main = "People per Sq. Mile")
+hist(raw_data$pctmin80, breaks = 30, main = "Percent Minority (1980)")
+hist(raw_data$mix, breaks = 30, main = "Offense Mix")
+hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
+```
+scale the data to take the units of the features out of the equation
+```{r}
+##a.) Scale continuous variables
+simpleFunc2 <- function(x){
+  y <- as.numeric(x)#data comes back as a bunch of characters without this line
+  if(sum(is.na(y))>1){return(x)} #if the data is NA then return the original value
+  scaledData <- ((y - min(y))/(max(y)-min(y))) #actual scaling happens here :) 
+  scaledData <- as.numeric(scaledData)
+  return (scaledData)}  
+df_num_clean <- data.frame(apply(raw_data,2, simpleFunc2)) #simple function is called and applied to the columns of the df
+summary(df_num_clean)#check your work
+```
+
+Build a simple model for eacg variable
+```{r}
+#check complete list with...
+str(df_num_clean, list.len=ncol(df_num_clean))
+#df_fv <- df_fv[, !duplicated(colnames(df_fv), fromLast = TRUE)] 
+#detach("package:MASS", unload=TRUE) #if the MASS package is installed it messes with dplyr
+df_pred <- df_num_clean %>%  select(-year, -county,-X)  # Identifies claims #only one level  
+
+#N=length(df_pred)-2 #number of variables in dataset
+lst_models = list() #stores the models themselves
+ctable = data.frame() #stores the summary results
+#Isolate the main effects
+for(i in (1:length(df_pred))){
+  st1 = names(df_pred[i])
+  st2 = paste('crmrte ~', st1) #concat var name and the dependant variable
+  fml = as.formula(st2)
+  lst_models[[i]] = lm(fml, data = df_pred) #create a model for each variable
+  test <- coef(summary(lst_models[[i]])) #store summary figures
+  p <- pnorm(abs(test[,"t value"]), lower.tail = FALSE) * 2 #Calc p values
+  sig <- add.significance.stars(p) #Add Stars
+  r_sq = summary(lst_models[[i]])$r.square
+  test <- cbind(test,"p value" = p , "sig" = sig, names(df_pred[i]),r_sq)#merge all columns, including one denoting the column
+  ctable <- rbind(ctable, test)
+}
+ctable <- cbind(Row.Names = rownames(ctable), ctable)
+ctable$interceptInd = ifelse(grepl("Intercept", ctable$Row.Names)==T,1,0)
+ctable2 = subset(ctable, ctable$interceptInd ==0)
+```
+review which coefficients have the biggest impact while being significant
+```{r}
+ctable2 %>% arrange(desc(round(as.numeric(as.character(Estimate)),2)))
+```
+Quick QC to test regression code :)
+```{r}
+model_test = lm(crmrte ~ density, data = df_num_clean)
+model_test
+summary(model_test)
+```
+
+
+##Model 1 - variables of key interest
+*choose only variables that we hypothesis are the KEY DETERMINANTS of crime*
+- consider whether a variable can be affected by local policy that could potentially *cause* crime to be deterred/decrease
+- see whether variables like arrest/conviction/prison probabilities are highly correlated and would introduce bias: crmrte ~ probs
+$$
+crmrte = \beta_0 + \beta_1 polpc + \beta_2 density + \beta_3 avesen + \beta_4 ... \text{probabilities of crime?} + u
+$$
+- other variables, while potentially related to crime, are unlikely determinants of crime that can be addressed by local policy
