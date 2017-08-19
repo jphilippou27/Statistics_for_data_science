@@ -37,8 +37,8 @@ describe(raw_data)
 # 90 distinct counties
 # only 1987
 # crimes per person: 0.005 to 0.1; right skew, consider sqrt()
-# probability of arrest: 0.09%(?) to 1.09%, right skew
-# probability of conviction: 0.07%(?) to 2.12%, right skew
+# probability of arrest: 0.09%(?) to 1.09%, right skew; its 9% to 70% the 1.09 is an error, initally we thought the probabilites can't be over 1, however further research into the dataset shows: "PA (which is measured by the ratio of arrests to offences), probability of conviction given arrest PC (which is measured by the ratio of convictions to arrests), probability of a prison sentence given a conviction PP (measured by the proportion of total convictions resulting in prison sentences)"
+# probability of conviction: 7% to 2.12%, right skew
 # probability of prison: 0.15%(?) to 0.6%, fairly normal
 # avg. sentence: 5 to 20 days w right skew
 # police per capita: extreme outliners at right end
@@ -50,6 +50,15 @@ describe(raw_data)
 # offense mix (face on / other): right skew
 # pct young male: right skew with one extreme outlier at right
 ```
+Label missing region as its own column and cross compare with urban dummy:
+```{r}
+table(raw_data$west, raw_data$central) #shows there should be 3 factors
+raw_data$missingLabel = ifelse(raw_data$west ==0 & raw_data$central==0,1,0)
+table(raw_data$west, raw_data$urban) #shows urban overlaps with regions, west mostly not urban
+table(raw_data$central, raw_data$urban) #central has the most urban
+table(raw_data$missingLabel, raw_data$urban)# other region in between the other two
+```
+
 
 ```{r}
 par(mfrow = c(1,2))
@@ -66,6 +75,30 @@ hist(raw_data$pctmin80, breaks = 30, main = "Percent Minority (1980)")
 hist(raw_data$mix, breaks = 30, main = "Offense Mix")
 hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
 ```
+Scatter plot matrix Part I
+```{r, fig.width = 11, fig.height = 10}
+scatterplotMatrix(raw_data[c(4:11,15:17)])
+```
+Scatterplot matrix Part II
+```{r, fig.width = 11, fig.height = 10}
+scatterplotMatrix(raw_data[c(4, 18:26)])
+```
+
+correlation between selected variables (density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser): high level of overlap between urban and density
+```{r, fig.width =10, fig.height = 10}
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{   usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- abs(cor(x, y))
+    txt <- format(c(r, 0.123456789), digits = digits)[1]
+    txt <- paste0(prefix, txt)
+    if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex.cor * r)}
+
+pairs(~crmrte +density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser, data=raw_data, upper.panel=panel.cor, pch=20, main="Crime Variables Correlation Scatterplot Matrix")
+```
+
+
 scale the data to take the units of the features out of the equation
 ```{r}
 ##a.) Scale continuous variables
@@ -79,26 +112,23 @@ df_num_clean <- data.frame(apply(raw_data,2, simpleFunc2)) #simple function is c
 summary(df_num_clean)#check your work
 ```
 
-Build a simple model for eacg variable
+Build a simple model for each variable
 ```{r}
 #check complete list with...
 str(df_num_clean, list.len=ncol(df_num_clean))
-#df_fv <- df_fv[, !duplicated(colnames(df_fv), fromLast = TRUE)] 
-#detach("package:MASS", unload=TRUE) #if the MASS package is installed it messes with dplyr
 df_pred <- df_num_clean %>%  select(-year, -county,-X)  # Identifies claims #only one level  
 
-#N=length(df_pred)-2 #number of variables in dataset
 lst_models = list() #stores the models themselves
 ctable = data.frame() #stores the summary results
 #Isolate the main effects
-for(i in (1:length(df_pred))){
+for(i in (1:length(df_pred))){#number of variables in dataset
   st1 = names(df_pred[i])
   st2 = paste('crmrte ~', st1) #concat var name and the dependant variable
   fml = as.formula(st2)
   lst_models[[i]] = lm(fml, data = df_pred) #create a model for each variable
   test <- coef(summary(lst_models[[i]])) #store summary figures
   p <- pnorm(abs(test[,"t value"]), lower.tail = FALSE) * 2 #Calc p values
-  sig <- add.significance.stars(p) #Add Stars
+  sig <- add.significance.stars(p) #Add Stars (pander library used)
   r_sq = summary(lst_models[[i]])$r.square
   test <- cbind(test,"p value" = p , "sig" = sig, names(df_pred[i]),r_sq)#merge all columns, including one denoting the column
   ctable <- rbind(ctable, test)
@@ -111,6 +141,7 @@ review which coefficients have the biggest impact while being significant
 ```{r}
 ctable2 %>% arrange(desc(round(as.numeric(as.character(Estimate)),2)))
 ```
+
 Quick QC to test regression code :)
 ```{r}
 model_test = lm(crmrte ~ density, data = df_num_clean)
@@ -127,3 +158,24 @@ $$
 crmrte = \beta_0 + \beta_1 polpc + \beta_2 density + \beta_3 avesen + \beta_4 ... \text{probabilities of crime?} + u
 $$
 - other variables, while potentially related to crime, are unlikely determinants of crime that can be addressed by local policy
+
+
+Thoughts on potentially missing variables/endogeneity:
+county specifics:
+-Education levels
+-Age distribution (older communities?)
+-Crime reporting rate (if the data isn't captured it LOOKS safer)
+-Recidivism rate vs rehabilitation programs quality
+
+Crime specifics
+-Only a few industries are represented for wage (overall measure would be helpful)
+-Type of crime (property vs violent)
+      -violent: murder, rape, robbery, assult
+      -property: burgulary, theft
+      -misdemenor: vandalism, disorderly conduct, traffic violations
+      -other: drugs/alcohol
+-X & Y coordinates of crimes (some streets are safer than others)
+-Crime time (certian crimes have higher rate during the day vs night)
+-Seasonality of crimes (summer vs winter)
+
+
