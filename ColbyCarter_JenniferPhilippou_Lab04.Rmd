@@ -9,8 +9,6 @@ output: pdf_document
 ##Introduction
 Safety and security are fundamental human needs and society relies on the government to provide a peaceful environment. The political leaders, law enforcement agencies, and the legal system work together to bring about a halcyon community. This analysis leverages data to help local officials better understand the factors associated with crime. A stronger understanding of the current environment and relationships within the data facilitates the creation of strategic policy that will mitigate future crime and enhance the community. 
 
-##Exploratory Data Analysis
-The dataset examined in this analysis include twenty-six different variables for ninety observations. The data also has no missing values and solely represents 1987 metrics for a given point in time.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, fig.width=6, fig.height=4)
 library(BSDA)
@@ -36,46 +34,45 @@ wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats
 raw_data <- read.csv("crime.csv")
 head(raw_data)
 ```
+##Exploratory Data Analysis
+The dataset examined in this analysis include twenty-six different variables for ninety different counties. As the describe function shows, the data also has no missing values and solely represents 1987 metrics for a given point in time. The file seems to be missing a dummy variable for region so a column has been added to adjust for that. Additionally there appears to be an erroneous entry for service wage for county no. 185 as it is well above all of the other wages across the board and it has been removed. Initally the probabilites for conviction, arrest and prison that exceeded one concerned us, however further research into the dataset reveals that the metrics are actually ratios and can be included in the analysis: "PA (which is measured by the ratio of arrests to offences), probability of conviction given arrest PC (which is measured by the ratio of convictions to arrests), probability of a prison sentence given a conviction PP (measured by the proportion of total convictions resulting in prison sentences)". 
+
 ```{r}
 describe(raw_data)
-# no missing values
-# 90 distinct counties
-# only 1987
-# crimes per person: 0.005 to 0.1; right skew, consider sqrt()
-# probability of arrest: 0.09%(?) to 1.09%, right skew; its 9% to 70% the 1.09 is an error, initally we thought the probabilites can't be over 1, however further research into the dataset shows: "PA (which is measured by the ratio of arrests to offences), probability of conviction given arrest PC (which is measured by the ratio of convictions to arrests), probability of a prison sentence given a conviction PP (measured by the proportion of total convictions resulting in prison sentences)"
-# probability of conviction: 7% to 2.12%, right skew
-# probability of prison: 0.15%(?) to 0.6%, fairly normal
-# avg. sentence: 5 to 20 days w right skew
-# police per capita: extreme outliners at right end
-# tax per cap: right skew with one extreme outlier at right
-# density: .2 to 9 people per sq mile; right skew with one extreme outlier at right
-# west = 23%, central = 38%, urban = 0.8%(!)
-# percent minority (1980): somewhat uniform/slight right tail
-# wage variables: mostly right skew
-#service wage has extreme outlier: 2177.0681 that shound be dropped
-# offense mix (face on / other): right skew
-# pct young male: right skew with one extreme outlier at right
 ```
-Label missing region as its own column and cross compare with urban dummy:
+
 ```{r}
+#Label missing region as its own column and cross compare with urban dummy:
 table(raw_data$west, raw_data$central) #shows there should be 3 factors
 raw_data$missingLabel = ifelse(raw_data$west ==0 & raw_data$central==0,1,0)
 table(raw_data$west, raw_data$urban) #shows urban overlaps with regions, west mostly not urban
 table(raw_data$central, raw_data$urban) #central has the most urban
 table(raw_data$missingLabel, raw_data$urban)# other region in between the other two
-```
-Dropping service wage outlier because it unbelievably large:
-```{r}
+#Dropping service wage outlier because it unbelievably large:
 raw_data$wser[84] = NA
 ```
 
+For the crimes per person, probability of arrest, probability of conviction, average sentance days ... we see a right skew and correct for it by transforming the variable with the square root function.
+# crimes per person: 0.005 to 0.1; right skew, consider sqrt()
+# probability of arrest: 0.09%(?) to 1.09%, right skew;
+# probability of conviction: 7% to 2.12%, right skew
+# probability of prison: 0.15%(?) to 0.6%, fairly normal
+# avg. sentence: 5 to 20 days w right skew
+# offense mix (face on / other): right skew
 
+# percent minority (1980): somewhat uniform/slight right tail
+
+# tax per cap: right skew with one extreme outlier at right
+# density: .2 to 9 people per sq mile; right skew with one extreme outlier at right
+
+# police per capita: extreme outliners at right end
+# pct young male: right skew with one extreme outlier at right 10 percentage points above the next highest value. Remove record with top coded variable (like done in the batting averages example 13.12)
 ```{r, fig.width = 10}
 par(mfrow = c(2,3))
 hist(raw_data$crmrte, breaks = 30, main = "Crimes per Person")
 hist(sqrt(raw_data$crmrte), breaks = 30, main = "Sq-Root of Crimes/Person")
-hist(log(raw_data$prbarr), breaks = 30, main = "Prob. of Arrest")
-hist(log(raw_data$prbconv), breaks = 30, main = "Prob. of Conviction")
+hist((raw_data$prbarr), breaks = 30, main = "Prob. of Arrest")
+hist((raw_data$prbconv), breaks = 30, main = "Prob. of Conviction")
 hist(raw_data$prbpris, breaks = 30, main = "Prob. of Prison")
 hist(raw_data$avgsen, breaks = 30, main = "Avg. Sentence (Days)")
 hist(raw_data$polpc, breaks = 30, main = "Police per Capita")
@@ -84,6 +81,20 @@ hist(raw_data$density, breaks = 30, main = "People per Sq. Mile")
 hist(raw_data$pctmin80, breaks = 30, main = "Percent Minority (1980)")
 hist(raw_data$mix, breaks = 30, main = "Offense Mix")
 hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
+```
+For the wage figures, most counties followed an almost normal distribution so given the Central Limit Theorm, we decided not to transform them. Of course there is always an exception and in this case that is the construction and manufacturing industry which had a stronger right skew so we decided to XX.
+```{r, fig.width = 10}
+par(mfrow = c(2,3))
+hist((raw_data$wcon), breaks = 30, main = "Construction Wage")
+hist(sqrt(raw_data$wcon), breaks = 30, main = "Sq-Root of Contstruction Wage")
+hist((raw_data$wfed), breaks = 30, main = "Wage Federal Workers")
+hist((raw_data$wfir), breaks = 30, main = "Wage of finance/Insur/Real Estate")
+hist((raw_data$wloc), breaks = 30, main = "Wage Loc Gov.")
+hist(log(raw_data$wmfg), breaks = 30, main = "Log of Manufacturing Wage")
+hist((raw_data$wser), breaks = 30, main = "Wage of Service Workers")
+hist((raw_data$wsta), breaks = 30, main = "Wage State Workers")
+hist((raw_data$wtrd), breaks = 30, main = "Wage Retail")
+hist((raw_data$wtuc), breaks = 30, main = "Wage Tras/Util/Comm")
 ```
 In case you want to see histograms of other variables
 ```{r, fig.width = 10}
@@ -163,12 +174,6 @@ review which coefficients have the biggest impact while being significant
 ctable2 %>% arrange(desc(round(as.numeric(as.character(Estimate)),2)))
 ```
 
-Quick QC to test regression code :)
-```{r}
-model_test = lm(crmrte ~ density, data = df_num_clean)
-model_test
-summary(model_test)
-```
 
 ##Model 1 - Variables of key interest
 *choose only variables that we hypothesis are the KEY DETERMINANTS of crime*
@@ -206,6 +211,9 @@ The model ran and we know from our correlation matrix above that none of the var
 par(mfrow = c(2,3))
 plot(model1, which=c(1:6))
 ```
+```{r}
+summary(model1)
+```
 
 
 
@@ -218,9 +226,9 @@ summary(model2)
 
 ##Model 3 - robustness 
 ```{r}
-model3 = lm(crmrte ~density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser, data=raw_data)
+model3 = lm(crmrte ~ polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris + taxpc + west+ central + pctymle + pctmin80 + mix + wcon +wtuc + wtrd + wfir+ wser +wmfg +wfed +wsta +wloc, data=raw_data)
 model3
-summary(model1)
+summary(model3)
 ```
 
 testing for interactions(can't keep in final lab, but good to know...):
@@ -251,4 +259,4 @@ Crime specifics
 -Crime time (certian crimes have higher rate during the day vs night)
 -Seasonality of crimes (summer vs winter)
 
-Conclusion
+##Conclusion
