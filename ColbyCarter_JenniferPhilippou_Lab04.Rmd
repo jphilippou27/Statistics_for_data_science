@@ -164,16 +164,21 @@ From this regression output, we see we have fairly strong explanatory power of o
 -5.) Homoskedasticity
 -6.) Normality of errors
 
+For assumptions #1-#3, we can treat each as satisfied given our population model definition: the coefficients we are estimated are strictly linear and the variables come from a cross-sectional dataset of county level data from 1987; while the sample is not randomly selected, it contains all the available cross-sections and is populated fully. Lastly, we know there is no perfect multicollinearity, as no fields can be derived from the values in another field; this is confirmed by our correlation matrix above where no variables are perfectly correlated, and the trivial fact that the model ran with no variables forced out. 
+
 Checking Assumption 1-2:
 
 ```{r, fig.height = 4, fig.width = 10}
+par(mfrow = c(1,2))
+plot(model1, which = 1)
+plot(model1, which = 2)
 residualPlots(model1)
 acf(model1$residuals)
 pacf(model1$residuals)
 ```
 
 Checking Assumption 3-6:
-The model ran and we know from our correlation matrix above that none of the variables are perfectly correlated so the multicollinearity assumption (#3) is met. 
+
 ```{r, fig.width=10}
 par(mfrow = c(2,3))
 plot(model1, which=c(1:6))
