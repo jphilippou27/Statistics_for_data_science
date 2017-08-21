@@ -52,7 +52,7 @@ table(raw_data$missingLabel, raw_data$urban)# other region in between the other 
 raw_data$wser[84] = NA
 ```
 
-There are several instances of very large outliers and we removed the impacted records in an effort to build an extensible model.  The impaced variables include: percent young male (10 pct points higher), density (8.8 compared to 6), police per capita (0.9% compared to 0.5%), and tax revenue per capita (119).
+There are several instances of very large outliers and we removed the impacted records in an effort to build an extensible model.  The impacted variables include: percent young male (10 pct points higher), density (8.8 compared to 6), police per capita (0.9% compared to 0.5%), and tax revenue per capita (119).
 #Remove record with top coded variable (like done in the batting averages example 13.12)
 ```{r}
 raw_data$removalFlag = ifelse(raw_data$county == "55",1, #taxpayer
@@ -86,7 +86,7 @@ hist(raw_data$pctmin80, breaks = 30, main = "Percent Minority (1980)")
 hist(raw_data$mix, breaks = 30, main = "Offense Mix")
 hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
 ```
-For the wage figures, most counties followed an almost normal distribution so given the Central Limit Theorm, we decided not to transform them. Of course there is always an exception and in this case that is the construction and manufacturing industry which had a stronger right skew so we decided to XX.
+For the wage figures, most counties followed an almost normal distribution so given the Central Limit Theorm and our sample size above 30, we decided not to transform them. Of course there is always an exception and in this case that is the construction and manufacturing industry which had a stronger right skew so we decided to XX.
 ```{r, fig.width = 11}
 par(mfrow = c(2,5))
 hist((raw_data$wcon), breaks = 30, main = "Construction Wage")
@@ -121,50 +121,6 @@ panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
     text(0.5, 0.5, txt, cex = cex.cor * r)}
 
 pairs(~crmrte +density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser, data=raw_data, upper.panel=panel.cor, pch=20, main="Crime Variables Correlation Scatterplot Matrix")
-```
-
-
-scale the data to take the units of the features out of the equation
-```{r}
-##a.) Scale continuous variables
-simpleFunc2 <- function(x){
-  y <- as.numeric(x)#data comes back as a bunch of characters without this line
-  if(sum(is.na(y))>1){return(x)} #if the data is NA then return the original value
-  scaledData <- ((y - min(y))/(max(y)-min(y))) #actual scaling happens here :) 
-  scaledData <- as.numeric(scaledData)
-  return (scaledData)}  
-df_num_clean <- data.frame(apply(raw_data,2, simpleFunc2)) #simple function is called and applied to the columns of the df
-summary(df_num_clean)#check your work
-```
-
-Build a simple model for each variable
-```{r}
-#check complete list with...
-str(df_num_clean, list.len=ncol(df_num_clean))
-df_pred <- df_num_clean %>%  select(-year, -county,-X)  # Identifies claims #only one level  
-
-lst_models = list() #stores the models themselves
-ctable = data.frame() #stores the summary results
-#Isolate the main effects
-for(i in (1:length(df_pred))){#number of variables in dataset
-  st1 = names(df_pred[i])
-  st2 = paste('crmrte ~', st1) #concat var name and the dependant variable
-  fml = as.formula(st2)
-  lst_models[[i]] = lm(fml, data = df_pred) #create a model for each variable
-  test <- coef(summary(lst_models[[i]])) #store summary figures
-  p <- pnorm(abs(test[,"t value"]), lower.tail = FALSE) * 2 #Calc p values
-  sig <- add.significance.stars(p) #Add Stars (pander library used)
-  r_sq = summary(lst_models[[i]])$r.square
-  test <- cbind(test,"p value" = p , "sig" = sig, names(df_pred[i]),r_sq)#merge all columns, including one denoting the column
-  ctable <- rbind(ctable, test)
-}
-ctable <- cbind(Row.Names = rownames(ctable), ctable)
-ctable$interceptInd = ifelse(grepl("Intercept", ctable$Row.Names)==T,1,0)
-ctable2 = subset(ctable, ctable$interceptInd ==0)
-```
-review which coefficients have the biggest impact while being significant
-```{r}
-ctable2 %>% arrange(desc(round(as.numeric(as.character(Estimate)),2)))
 ```
 
 
