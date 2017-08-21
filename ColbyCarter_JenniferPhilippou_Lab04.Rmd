@@ -29,54 +29,35 @@ require(Hmisc)
 ```
 
 ```{r, include = F}
-#wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
-wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats")
+wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
+# wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats")
 raw_data <- read.csv("crime.csv")
 head(raw_data)
 ```
 ##Exploratory Data Analysis
 The dataset examined in this analysis include twenty-six different variables for ninety different counties. As the describe function shows, the data also has no missing values and solely represents 1987 metrics for a given point in time. The file seems to be missing a dummy variable for region so a column has been added to adjust for that. Additionally there appears to be an erroneous entry for service wage for county no. 185 as it is well above all of the other wages across the board and it has been removed. Initally the probabilites for conviction, arrest and prison that exceeded one concerned us, however further research into the dataset reveals that the metrics are actually ratios and can be included in the analysis: "PA (which is measured by the ratio of arrests to offences), probability of conviction given arrest PC (which is measured by the ratio of convictions to arrests), probability of a prison sentence given a conviction PP (measured by the proportion of total convictions resulting in prison sentences)". 
 
-```{r}
+```{r, include = FALSE}
 describe(raw_data)
 ```
 
-```{r}
+```{r, include = FALSE}
 #Label missing region as its own column and cross compare with urban dummy:
+?table
 table(raw_data$west, raw_data$central) #shows there should be 3 factors
 raw_data$missingLabel = ifelse(raw_data$west ==0 & raw_data$central==0,1,0)
 table(raw_data$west, raw_data$urban) #shows urban overlaps with regions, west mostly not urban
 table(raw_data$central, raw_data$urban) #central has the most urban
 table(raw_data$missingLabel, raw_data$urban)# other region in between the other two
-#Dropping service wage outlier because it unbelievably large:
-raw_data$wser[84] = NA
 ```
-
-There are several instances of very large outliers and we removed the impacted records in an effort to build an extensible model.  The impacted variables include: percent young male (10 pct points higher), density (8.8 compared to 6), police per capita (0.9% compared to 0.5%), and tax revenue per capita (119).
-#Remove record with top coded variable (like done in the batting averages example 13.12)
-```{r}
-raw_data$removalFlag = ifelse(raw_data$county == "55",1, #taxpayer
-                              ifelse(raw_data$county == "133",1, #pctmale
-                                     ifelse(raw_data$county == "115",1, #polpc
-                                            ifelse(raw_data$county == "119",1,0))))
-raw_data = subset(raw_data, raw_data$removalFlag !=1)
-```
-For the crimes per person, probability of arrest, probability of conviction, average sentance days, offene mix, density, tax per capita ... we see a right skew and correct for it by transforming the variable with the square root function.
-# crimes per person: 0.005 to 0.1; right skew, consider sqrt()
-# probability of arrest: 0.09%(?) to 1.09%, right skew;
-# probability of conviction: 7% to 2.12%, right skew
-# probability of prison: 0.15%(?) to 0.6%, fairly normal
-# avg. sentence: 5 to 20 days w right skew
-# offense mix (face on / other): right skew
-# tax per cap: right skew 
-# percent minority (1980): somewhat uniform/slight right tail
 
 ```{r, fig.width = 10}
 par(mfrow = c(2,4))
 hist(raw_data$crmrte, breaks = 30, main = "Crimes per Person")
-hist(sqrt(raw_data$crmrte), breaks = 30, main = "Sq-Root of Crimes/Person")
-hist((raw_data$prbarr), breaks = 30, main = "Prob. of Arrest")
-hist((raw_data$prbconv), breaks = 30, main = "Prob. of Conviction")
+# hist(sqrt(raw_data$crmrte), breaks = 30, main = "Sq-Root of Crimes/Person")
+hist((raw_data$prbarr), breaks = 30, main = "Arrest Ratio")
+hist((raw_data$prbconv), breaks = 30, main = "Conviction Ratio")
+hist(sqrt(raw_data$prbconv), breaks = 30, main = "Sq. Root(Conviction Ratio)")
 hist(raw_data$prbpris, breaks = 30, main = "Prob. of Prison")
 hist(raw_data$avgsen, breaks = 30, main = "Avg. Sentence (Days)")
 hist(raw_data$polpc, breaks = 30, main = "Police per Capita")
@@ -86,19 +67,45 @@ hist(raw_data$pctmin80, breaks = 30, main = "Percent Minority (1980)")
 hist(raw_data$mix, breaks = 30, main = "Offense Mix")
 hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
 ```
-For the wage figures, most counties followed an almost normal distribution so given the Central Limit Theorm and our sample size above 30, we decided not to transform them. Of course there is always an exception and in this case that is the construction and manufacturing industry which had a stronger right skew so we decided to XX.
+
+There are a handful of instances of very large outliers that tend to be associated with very small population densities (i.e., low population and/or high land area), which include: police per capita (0.9 compared to 0.5), tax revenue per capita (119, nearly double the next highest value), and percent young male (10 pct points higher at 25% of total population--an unusually high rate possibly explained by the presence of something like a military base). With likely explanations outside of our data, we exclude these observations from our proposed models. 
+```{r}
+#Remove record with top coded variable (like done in the batting averages example 13.12)
+raw_data$removalFlag = ifelse(raw_data$county == "55",1, #taxpayer
+                              ifelse(raw_data$county == "133",1, #pctmale
+                                     ifelse(raw_data$county == "115",1, 0))) #polpc
+                                            # ifelse(raw_data$county == "119",1,) -high density
+raw_data = subset(raw_data, raw_data$removalFlag !=1)
+```
+
+For the crimes per person, probability of arrest, probability of conviction, average sentance days, offene mix, density, and tax per capita, we see varying right skewness and attempt to mitigate violations of the assumptions for linear regression by transforming these variables with the square root function (e.g., square root of the Conditional Conviction Ratio, in histogram above).
+```{r,include=FALSE}
+# crimes per person: 0.005 to 0.1; right skew, consider sqrt()
+# probability of arrest: 0.09 to 1.09, right skew
+# probability of conviction: .07 to 2.12, right skew
+# probability of prison: 0.15 to 0.6, fairly normal
+# avg. sentence: 5 to 20 days w right skew
+# offense mix (face on / other): right skew
+# tax per cap: right skew 
+# percent minority (1980): somewhat uniform/slight right tail
+```
+
+For the average weekly wage levels by industry, most distributions are fairly normal with some right skew in a couple sample distributions (e.g., see Construction and Manufacturing). We considered transformations, including taking the natural log or square root to mitigate this skew (e.g., Log(Manufacturing Wage) below), but given the Central Limit Theorem and our sample size above 30, we did not consider this necessary for linear regression. However, there is one case of an extreme outline in the average wage of service workers nearly ten times higher than median county wage value, which would appear to be a data entry error likely off by an order of magnitude; we see reason to ignore this wage value error but not the observation itself and its other variables.
 ```{r, fig.width = 11}
+#Dropping service wage outlier due to likely data entry error or extremely low desity/population influence:
 par(mfrow = c(2,5))
 hist((raw_data$wcon), breaks = 30, main = "Construction Wage")
 #hist(sqrt(raw_data$wcon), breaks = 30, main = "Sq-Root of Contstruction Wage")
 hist((raw_data$wfed), breaks = 30, main = "Wage Federal Workers")
-hist((raw_data$wfir), breaks = 30, main = "Wage of finance/Insur/Real Estate")
-hist((raw_data$wloc), breaks = 30, main = "Wage Loc Gov.")
-hist(log(raw_data$wmfg), breaks = 30, main = "Log of Manufacturing Wage")
+hist((raw_data$wfir), breaks = 30, main = "Finance/Insur/Real Estate")
+hist((raw_data$wmfg), breaks = 30, main = "Manufacturing Wage")
+hist(log(raw_data$wmfg), breaks = 30, main = "Log(Manufacturing Wage)")
 hist((raw_data$wser), breaks = 30, main = "Wage of Service Workers")
+hist((raw_data$wloc), breaks = 30, main = "Wage Local Gov.")
 hist((raw_data$wsta), breaks = 30, main = "Wage State Workers")
 hist((raw_data$wtrd), breaks = 30, main = "Wage Retail")
-hist((raw_data$wtuc), breaks = 30, main = "Wage Tras/Util/Comm")
+hist((raw_data$wtuc), breaks = 30, main = "Wage Trans/Util/Comm")
+raw_data$wser[84] = NA
 ```
 Scatter plot matrix Part I
 ```{r, fig.width = 11, fig.height = 10}
@@ -124,21 +131,32 @@ pairs(~crmrte +density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west 
 ```
 
 
-##Model 1 - Variables of key interest
-*choose only variables that we hypothesis are the KEY DETERMINANTS of crime*
-- consider whether a variable can be affected by local policy that could potentially *cause* crime to be deterred/decrease
-- see whether variables like arrest/conviction/prison probabilities are highly correlated and would introduce bias.
-Do stricter punishments (as measured by the average sentance length) effectively deter crime? Does having more police per capita decrease crime?
+##Identifying Key Determinants of Crime
+
+Given our cross-section of the above county-level data, including crime statistics and likelihoods of punishment, we first seek to explain the key causal drivers of crime by hypothesizing one population model. We first conjecture which key variables may have an effect that *also* have the potential to be addressed from a policy-making position. This is the first step in an iterative process to test the robustness of these model effects and the likely biases inherent in these limited data fields and from missing, or omitted, variables that we would like to have.
+
+Before hypthothesizing our population model, we consider the types of variables in the data and which types could be translated into policy terms. First, we have fields related to police presence and the likelihood and severity of punishment for any given crime. These are our most likely levers for which we can estimate the causal relationships and compare the relative effects on crime rates, and politically can be adjusted by increasing police staffing or proposing legislation to improve crime prevention effectiveness and punishment deterents through statute.
+
+Next, we are given locational differences such as population density, which may offer targeted policy prescriptions or resource allocation, as well as additional effects when interacted with the aforementioned police and punishment severity levers. For example, we conjecture that there may be a difference in effect of adding police presence or increasing the severity of punishment for particular crimes in urban versus non-urban areas. We must recognize, unfortunately, that the size of the urban segment is only $n=8$, which is likely produce too large of standard errors to make confident conclusions, but the direction of coefficients could still lead to more targeted future analysis on urban or non-urban policy.
+
+Lastly, we have a number of economic variables including various wage levels, tax levies and demographics. While these may have explanatory power on our sample of counties, these variables do not have direct links to policy and will be incorporated later when attempting to control for non-crime factors and test for model robustness.
+
+In expectation, we hypothesize that crime prevention proxies such as police per capita, average sentance duration, and likelihood of capture and punishment will have negative relationships with crime rates, while these effect sizes may differ in highly dense, or urban areas. We will then estimate the following population model with their raw, untransformed variables:
+
 $$
-crmrte = \beta_0 + \beta_1 polpc + \beta_2 density + \beta_3 avesen + \beta_4 ... \text{probabilities of crime?} + u
+crmrte = \beta_0 + \beta_1 polpc + \beta_2 avgsen + \beta_3 prbarr + \beta_4 prbconv + \beta_5 prbpris + \beta_6 density  + \beta_7 urban + \\
+          \beta_8 (polpc * urban) + \beta_9  (avgsen * urban) + \beta_{10}  (prbarr * urban) + \\
+          \beta_{11} (prbconv * urban) + \beta_{12}  (prbpris * urban)+ u
 $$
-- other variables, while potentially related to crime, are unlikely determinants of crime that can be addressed by local policy
+
 ```{r}
-model1 = lm(crmrte ~polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris, data=raw_data)
-model1
+model1 = lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
+              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban), data=raw_data)
+summary(model1)
 ```
 
-Assumptions of CLM:
+From this regression output, we see we have fairly strong explanatory power of our sample, with approximately 75% of the variation in crime rate explained by the model, with several statistically significant relationships. We now test the six key assumptions of classical linear modeling:
+
 -1.) Linearity in parameters
 -2.) Random sample
 -3.) No perfect collinearity
@@ -167,6 +185,14 @@ summary(model1)
 
 
 ##Model 2 - increases accuracy without bias (controls)
+
+Model 2: increase accuracy without increasing bias
+  - taxpc, control for income (sq rt?)
+  - west, central (interact each with urban? not enough obs)
+  - pctymle, control for demographics
+  - pctmin80
+  - mix? check if adds accuracy or increases bias
+  
 ```{r}
 model2 = lm(crmrte ~ polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris + taxpc + west+ central + pctymle + pctmin80 + mix, data=raw_data)
 model2
@@ -190,6 +216,7 @@ write.csv(step_output, "Step2variables2.csv")
 ```
 
 
+###notes on robustness and limitations
 Thoughts on potentially missing variables/endogeneity:
 county specifics:
 -Education levels
