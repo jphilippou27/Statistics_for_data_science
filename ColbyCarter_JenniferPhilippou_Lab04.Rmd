@@ -166,27 +166,31 @@ From this regression output, we see we have fairly strong explanatory power of o
 
 For assumptions #1-#3, we can treat each as satisfied given our population model definition: the coefficients we are estimated are strictly linear and the variables come from a cross-sectional dataset of county level data from 1987; while the sample is not randomly selected, it contains all the available cross-sections and is populated fully. Lastly, we know there is no perfect multicollinearity, as no fields can be derived from the values in another field; this is confirmed by our correlation matrix above where no variables are perfectly correlated, and the trivial fact that the model ran with no variables forced out. 
 
-Checking Assumption 1-2:
+We then must confirm that the expected values of our errors are all zero for any given observation and variable, as well as the homoskedasticity and normality of the errors. Looking at the first plot of residuals versus observed crime rate values, we see the fitted line of expected residuals (red) closely following zero on our residual axis, with no obvious trend as the observed crime rate values increase. Similarly, the Pearson residuals for each independent variable have expectation roughly tracking the zero line, thus not producing evidence that we do not have zero-conditional mean of the errors. However, we do see a couple data points with high leverage with Cook's distances approaching 1 (Chart: Residuals vs Leverage), likely due to the right-skew of both our depend variable and several covariates; we test a model with skewed variables transformed to more normal sample distributions shortly.
+
+Looking at these same plots, we also do not see reason to believe there is heteroskedasticity in these data, where there would be distinct differences in variation of the errors dependendent about the value of the underlying variables; while we do see clustering of the fitted values due to skew of the underlying variables, this does not appear to lead to differences in variance across the errors. And lastly, we can look to the Q-Q plot of the standardized residuals against the line that would represent a normal distribution and see that the residuals do appear to be close to normal, with a few points deviating from the line at the tales.
+[INTERPRET ACF AND PACF CHARTS]
 
 ```{r, fig.height = 4, fig.width = 10}
+test_resids <- data.frame(model1$fitted.values,model1$residuals)
 par(mfrow = c(1,2))
 plot(model1, which = 1)
-plot(model1, which = 2)
+plot(model1, which = 5)
+#NEED TO REFORMAT PEARSON RESIDUAL PLUTS SO THE LEFT AXIS SCALES ARE MORE CLEAR--I CONTINUE TO BE TERRIBLE AT FORMATTING CHARTS IN R (CMC)
 residualPlots(model1)
+plot(model1, which = 2)
 acf(model1$residuals)
 pacf(model1$residuals)
 ```
 
-Checking Assumption 3-6:
-
+Compare models using transformed variables:
 ```{r, fig.width=10}
-par(mfrow = c(2,3))
-plot(model1, which=c(1:6))
+model1_trans = lm(crmrte ~sqrt(polpc) + sqrt(avgsen) + prbarr + sqrt(prbconv) + prbpris + sqrt(density) + urban + (polpc * urban) +
+              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban), data=raw_data)
+summary(model1_trans)
+anova(model1, model1_trans)
 ```
-```{r}
-summary(model1)
-```
-
+*some evidence to reject the null hypothesis that model 1 has same explanatory power as model with transformed variables*
 
 
 ##Model 2 - increases accuracy without bias (controls)
