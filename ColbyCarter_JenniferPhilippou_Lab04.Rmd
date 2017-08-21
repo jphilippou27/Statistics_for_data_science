@@ -52,23 +52,27 @@ table(raw_data$missingLabel, raw_data$urban)# other region in between the other 
 raw_data$wser[84] = NA
 ```
 
-For the crimes per person, probability of arrest, probability of conviction, average sentance days ... we see a right skew and correct for it by transforming the variable with the square root function.
+There are several instances of very large outliers and we removed the impacted records in an effort to build an extensible model.  The impaced variables include: percent young male (10 pct points higher), density (8.8 compared to 6), police per capita (0.9% compared to 0.5%), and tax revenue per capita (119).
+#Remove record with top coded variable (like done in the batting averages example 13.12)
+```{r}
+raw_data$removalFlag = ifelse(raw_data$county == "55",1, #taxpayer
+                              ifelse(raw_data$county == "133",1, #pctmale
+                                     ifelse(raw_data$county == "115",1, #polpc
+                                            ifelse(raw_data$county == "119",1,0))))
+raw_data = subset(raw_data, raw_data$removalFlag !=1)
+```
+For the crimes per person, probability of arrest, probability of conviction, average sentance days, offene mix, density, tax per capita ... we see a right skew and correct for it by transforming the variable with the square root function.
 # crimes per person: 0.005 to 0.1; right skew, consider sqrt()
 # probability of arrest: 0.09%(?) to 1.09%, right skew;
 # probability of conviction: 7% to 2.12%, right skew
 # probability of prison: 0.15%(?) to 0.6%, fairly normal
 # avg. sentence: 5 to 20 days w right skew
 # offense mix (face on / other): right skew
-
+# tax per cap: right skew 
 # percent minority (1980): somewhat uniform/slight right tail
 
-# tax per cap: right skew with one extreme outlier at right
-# density: .2 to 9 people per sq mile; right skew with one extreme outlier at right
-
-# police per capita: extreme outliners at right end
-# pct young male: right skew with one extreme outlier at right 10 percentage points above the next highest value. Remove record with top coded variable (like done in the batting averages example 13.12)
 ```{r, fig.width = 10}
-par(mfrow = c(2,3))
+par(mfrow = c(2,4))
 hist(raw_data$crmrte, breaks = 30, main = "Crimes per Person")
 hist(sqrt(raw_data$crmrte), breaks = 30, main = "Sq-Root of Crimes/Person")
 hist((raw_data$prbarr), breaks = 30, main = "Prob. of Arrest")
@@ -83,10 +87,10 @@ hist(raw_data$mix, breaks = 30, main = "Offense Mix")
 hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
 ```
 For the wage figures, most counties followed an almost normal distribution so given the Central Limit Theorm, we decided not to transform them. Of course there is always an exception and in this case that is the construction and manufacturing industry which had a stronger right skew so we decided to XX.
-```{r, fig.width = 10}
-par(mfrow = c(2,3))
+```{r, fig.width = 11}
+par(mfrow = c(2,5))
 hist((raw_data$wcon), breaks = 30, main = "Construction Wage")
-hist(sqrt(raw_data$wcon), breaks = 30, main = "Sq-Root of Contstruction Wage")
+#hist(sqrt(raw_data$wcon), breaks = 30, main = "Sq-Root of Contstruction Wage")
 hist((raw_data$wfed), breaks = 30, main = "Wage Federal Workers")
 hist((raw_data$wfir), breaks = 30, main = "Wage of finance/Insur/Real Estate")
 hist((raw_data$wloc), breaks = 30, main = "Wage Loc Gov.")
@@ -96,17 +100,6 @@ hist((raw_data$wsta), breaks = 30, main = "Wage State Workers")
 hist((raw_data$wtrd), breaks = 30, main = "Wage Retail")
 hist((raw_data$wtuc), breaks = 30, main = "Wage Tras/Util/Comm")
 ```
-In case you want to see histograms of other variables
-```{r, fig.width = 10}
-par(mfrow=c(2,3))
-for(i in (3:26)){
-   x = raw_data[,i]
-   df_name = names(raw_data)
-   df_name = df_name[i] 
-hist(x, main = df_name )}
-```
-
-
 Scatter plot matrix Part I
 ```{r, fig.width = 11, fig.height = 10}
 scatterplotMatrix(raw_data[c(4:11,15:17)])
