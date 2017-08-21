@@ -6,6 +6,11 @@ date: "August 22, 2017"
 output: pdf_document
 ---
 
+##Introduction
+Safety and security are fundamental human needs and society relies on the government to provide a peaceful environment. The political leaders, law enforcement agencies, and the legal system work together to bring about a halcyon community. This analysis leverages data to help local officials better understand the factors associated with crime. A stronger understanding of the current environment and relationships within the data facilitates the creation of strategic policy that will mitigate future crime and enhance the community. 
+
+##Exploratory Data Analysis
+The dataset examined in this analysis include twenty-six different variables for ninety observations. The data also has no missing values and solely represents 1987 metrics for a given point in time.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, fig.width=6, fig.height=4)
 library(BSDA)
@@ -25,7 +30,7 @@ require(Hmisc)
 #require(pander)
 ```
 
-```{r}
+```{r, include = F}
 #wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
 wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats")
 raw_data <- read.csv("crime.csv")
@@ -47,6 +52,7 @@ describe(raw_data)
 # west = 23%, central = 38%, urban = 0.8%(!)
 # percent minority (1980): somewhat uniform/slight right tail
 # wage variables: mostly right skew
+#service wage has extreme outlier: 2177.0681 that shound be dropped
 # offense mix (face on / other): right skew
 # pct young male: right skew with one extreme outlier at right
 ```
@@ -58,14 +64,18 @@ table(raw_data$west, raw_data$urban) #shows urban overlaps with regions, west mo
 table(raw_data$central, raw_data$urban) #central has the most urban
 table(raw_data$missingLabel, raw_data$urban)# other region in between the other two
 ```
-
-
+Dropping service wage outlier because it unbelievably large:
 ```{r}
-par(mfrow = c(1,2))
+raw_data$wser[84] = NA
+```
+
+
+```{r, fig.width = 10}
+par(mfrow = c(2,3))
 hist(raw_data$crmrte, breaks = 30, main = "Crimes per Person")
-hist((raw_data$crmrte)**(1/3), breaks = 30, main = "Sq-Root of Crimes/Person")
-hist(raw_data$prbarr, breaks = 30, main = "Prob. of Arrest")
-hist(raw_data$prbconv, breaks = 30, main = "Prob. of Conviction")
+hist(sqrt(raw_data$crmrte), breaks = 30, main = "Sq-Root of Crimes/Person")
+hist(log(raw_data$prbarr), breaks = 30, main = "Prob. of Arrest")
+hist(log(raw_data$prbconv), breaks = 30, main = "Prob. of Conviction")
 hist(raw_data$prbpris, breaks = 30, main = "Prob. of Prison")
 hist(raw_data$avgsen, breaks = 30, main = "Avg. Sentence (Days)")
 hist(raw_data$polpc, breaks = 30, main = "Police per Capita")
@@ -75,6 +85,17 @@ hist(raw_data$pctmin80, breaks = 30, main = "Percent Minority (1980)")
 hist(raw_data$mix, breaks = 30, main = "Offense Mix")
 hist(raw_data$pctymle, breaks = 30, main = "Percent Young Male")
 ```
+In case you want to see histograms of other variables
+```{r, fig.width = 10}
+par(mfrow=c(2,3))
+for(i in (3:26)){
+   x = raw_data[,i]
+   df_name = names(raw_data)
+   df_name = df_name[i] 
+hist(x, main = df_name )}
+```
+
+
 Scatter plot matrix Part I
 ```{r, fig.width = 11, fig.height = 10}
 scatterplotMatrix(raw_data[c(4:11,15:17)])
@@ -149,15 +170,67 @@ model_test
 summary(model_test)
 ```
 
-
-##Model 1 - variables of key interest
+##Model 1 - Variables of key interest
 *choose only variables that we hypothesis are the KEY DETERMINANTS of crime*
 - consider whether a variable can be affected by local policy that could potentially *cause* crime to be deterred/decrease
-- see whether variables like arrest/conviction/prison probabilities are highly correlated and would introduce bias: crmrte ~ probs
+- see whether variables like arrest/conviction/prison probabilities are highly correlated and would introduce bias.
+Do stricter punishments (as measured by the average sentance length) effectively deter crime? Does having more police per capita decrease crime?
 $$
 crmrte = \beta_0 + \beta_1 polpc + \beta_2 density + \beta_3 avesen + \beta_4 ... \text{probabilities of crime?} + u
 $$
 - other variables, while potentially related to crime, are unlikely determinants of crime that can be addressed by local policy
+```{r}
+model1 = lm(crmrte ~polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris, data=raw_data)
+model1
+```
+
+Assumptions of CLM:
+-1.) Linearity in parameters
+-2.) Random sample
+-3.) No perfect collinearity
+-4.) Zero conditional mean
+-5.) Homoskedasticity
+-6.) Normality of errors
+
+Checking Assumption 1-2:
+
+```{r, fig.height = 4, fig.width = 10}
+residualPlots(model1)
+acf(model1$residuals)
+pacf(model1$residuals)
+```
+
+Checking Assumption 3-6:
+The model ran and we know from our correlation matrix above that none of the variables are perfectly correlated so the multicollinearity assumption (#3) is met. 
+```{r, fig.width=10}
+par(mfrow = c(2,3))
+plot(model1, which=c(1:6))
+```
+
+
+
+##Model 2 - increases accuracy without bias (controls)
+```{r}
+model2 = lm(crmrte ~ polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris + taxpc + west+ central + pctymle + pctmin80 + mix, data=raw_data)
+model2
+summary(model2)
+```
+
+##Model 3 - robustness 
+```{r}
+model3 = lm(crmrte ~density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser, data=raw_data)
+model3
+summary(model1)
+```
+
+testing for interactions(can't keep in final lab, but good to know...):
+```{r}
+model_test = lm(crmrte ~ urban + west+central+ density+taxpc, data = raw_data)
+summary(model_test)
+step <- step(model_test, ~.^2)
+step_output <- step$anova
+write.csv(step_output, "Step2variables2.csv")
+```
 
 
 Thoughts on potentially missing variables/endogeneity:
@@ -178,4 +251,4 @@ Crime specifics
 -Crime time (certian crimes have higher rate during the day vs night)
 -Seasonality of crimes (summer vs winter)
 
-
+Conclusion
