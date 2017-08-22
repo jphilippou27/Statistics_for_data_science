@@ -29,8 +29,9 @@ require(Hmisc)
 ```
 
 ```{r, include = F}
-wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
+#wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
 # wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats")
+setwd("~/Berkeley/W203/Labs")
 raw_data <- read.csv("crime.csv")
 head(raw_data)
 ```
@@ -43,7 +44,6 @@ describe(raw_data)
 
 ```{r, include = FALSE}
 #Label missing region as its own column and cross compare with urban dummy:
-?table
 table(raw_data$west, raw_data$central) #shows there should be 3 factors
 raw_data$missingLabel = ifelse(raw_data$west ==0 & raw_data$central==0,1,0)
 table(raw_data$west, raw_data$urban) #shows urban overlaps with regions, west mostly not urban
@@ -176,7 +176,7 @@ We then must confirm that the expected values of our errors are all zero for any
 Looking at these same plots, we also do not see reason to believe there is heteroskedasticity in these data, where there would be distinct differences in variation of the errors dependendent about the value of the underlying variables; while we do see clustering of the fitted values due to skew of the underlying variables, this does not appear to lead to differences in variance across the errors. And lastly, we can look to the Q-Q plot of the standardized residuals against the line that would represent a normal distribution and see that the residuals do appear to be close to normal, with a few points deviating from the line at the tales.
 [INTERPRET ACF AND PACF CHARTS]
 
-```{r, fig.height = 4, fig.width = 10}
+```{r, fig.height = 5, fig.width = 10}
 test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
 par(mfrow = c(1,2))
 plot(model1, which = 1)
@@ -217,17 +217,64 @@ anova(model1, model1_trans)
 
 ##Model 2 - increases accuracy without bias (controls)
 
-Model 2: increase accuracy without increasing bias
-  - taxpc, control for income (sq rt?)
+After determining the explantory features that are most mallelable to public policy, we look to identify the variables that are more difficult to influence, but nevertheless bare important relationships within the dataset. The distinguishing characteristics of theses explantory features is their ability to increase the amount of variability explained while not introducing bias and violating any of the six aforementioned assumptions.
+
+Model 1 focuses so specifically on crime and policy that it currently does not leverage much background information on each of the counties, and that is the objective of model 2. Starting with several demographic variables, introducing the tax revenue per capita enables us to understand the relative resources available within the counties. Traditionally wealthier communities tend to have more resources and less crime and we expect to see that trend in North Carolina. Another feature, the percentage of young males initmates 
+
+Finally the percentage minority 
   - west, central (interact each with urban? not enough obs)
-  - pctymle, control for demographics
-  - pctmin80
   - mix? check if adds accuracy or increases bias
+
+we hypothesize ... We will then ...
+$$
+crmrte = \beta_0 + \beta_1 polpc + \beta_2 avgsen + \beta_3 prbarr + \beta_4 prbconv + \beta_5 prbpris + \beta_6 density  + \beta_7 urban + \\
+          \beta_8 (polpc * urban) + \beta_9  (avgsen * urban) + \beta_{10}  (prbarr * urban) + \\
+          \beta_{11} (prbconv * urban) + \beta_{12}  (prbpris * urban)+ \beta_{13} taxpc +\beta_{14}west + \beta_{15}central + \beta_{16}MissingLabel + \beta_{17}pctymle + \beta_{18}pctmin80 + \beta_{19}mix +  u
+$$
+
   
 ```{r}
-model2 = lm(crmrte ~ polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris + taxpc + west+ central + pctymle + pctmin80 + mix, data=raw_data)
+model2 = lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
+              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west + central + pctymle + pctmin80 + mix + missingLabel, data=raw_data)
 model2
 summary(model2)
+```
+adding interactions for model 2:
+model 2 with interactions not statistically different according to anova test, but vanilla model 2 is. residuals vs fitted = a little iffy...
+
+```{r}
+model2_rest <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
+              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west+ central + pctymle + pctmin80 + mix + (west*polpc)+ (central*polpc) + (central * mix) + (west*mix) + (urban*mix) + (urban*taxpc) + (taxpc*west), data=raw_data)
+summary(model2_rest)
+stargazer(model1, model2, model2_rest, type = "text", report = "vcs*",
+          header = FALSE,
+          title = "Comparison of Key Crime Determinants Only",
+          star.cutoffs = c(0.05, 0.01, 0.001))
+ anova(model1, model2)
+ anova(model2, model2_rest )
+```
+testing assumptions model 2
+```{r, fig.height = 5, fig.width = 10}
+#test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
+par(mfrow = c(2,3))
+plot(model2, which = c(1,2,3,5))
+acf(model2$residuals)
+pacf(model2$residuals)
+```
+```{r}
+#residualPlots(model2)
+```
+
+
+
+Introducing interactions causes the model to have heterosckedacity, 5+ points with leverage above 1 and might be overfitting the data...is that enough of a reason to drop them?
+```{r, fig.height = 5, fig.width = 10}
+#test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
+par(mfrow = c(2,3))
+plot(model2_rest, which = c(1,2,3,5))
+#residualPlots(model2)
+acf(model2_rest$residuals)
+pacf(model2_rest$residuals)
 ```
 
 ##Model 3 - robustness 
