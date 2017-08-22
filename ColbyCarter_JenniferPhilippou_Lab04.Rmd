@@ -58,7 +58,7 @@ hist(raw_data$crmrte, breaks = 30, main = "Crimes per Person")
 hist((raw_data$prbarr), breaks = 30, main = "Arrest Ratio")
 hist((raw_data$prbconv), breaks = 30, main = "Conviction Ratio")
 hist(sqrt(raw_data$prbconv), breaks = 30, main = "Sq. Root(Conviction Ratio)")
-hist(raw_data$prbpris, breaks = 30, main = "Prob. of Prison")
+hist(raw_data$prbpris, breaks = 30, main = "Prison Ratio")
 hist(raw_data$avgsen, breaks = 30, main = "Avg. Sentence (Days)")
 hist(raw_data$polpc, breaks = 30, main = "Police per Capita")
 hist(raw_data$taxpc, breaks = 30, main = "Tax Rev. per Capita")
@@ -177,7 +177,7 @@ Looking at these same plots, we also do not see reason to believe there is heter
 [INTERPRET ACF AND PACF CHARTS]
 
 ```{r, fig.height = 4, fig.width = 10}
-test_resids <- data.frame(model1$fitted.values,model1$residuals)
+test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
 par(mfrow = c(1,2))
 plot(model1, which = 1)
 plot(model1, which = 5)
@@ -188,12 +188,29 @@ acf(model1$residuals)
 pacf(model1$residuals)
 ```
 
-Compare models using transformed variables:
+While it would appear that interacting the $urban$ indicator with our key crime covariates would absorb much of the effects of those variables, we should test the bias that omitting them would introduce as well as whether the explanatory power is signifcantly improved by adding them. By running the model with omitted interaction terms, we see below that the coefficients to our raw numeric variables are for the most part unchanged, while several of our interaction terms have strongly significant effects. Further, by running an F-test on the two models, we do not see evidence that the restricted model has just as much explanatory power as the full model ($p = .08$):
+
+```{r, echo=FALSE, results='asis'}
+model1_excl <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban, data=raw_data)
+summary(model1_excl)
+stargazer(model1, model1_excl, type = "text", report = "vcs*",
+          header = FALSE,
+          title = "Comparison of Key Crime Determinants Only",
+          star.cutoffs = c(0.05, 0.01, 0.001))
+anova(model1, model1_excl)
+```
+
+Since we also noted the right skew of several of the independent variables, we consider whether the model is signifcantly improved when transforming these variables with the square root function. In this case, while the ANOVA test does suggest there is modest evidence to reject the null that the full model has the same explanatory power as the model with transformed variables, the improvement does not appear to be strong enough to warrant the interpretation of square-roots of key variables. Further, looking at the Q-Q plot of standardized residuals, we still see similar approximate normality to the original model, still with some deviation from the normal curve at the extremes:
 ```{r, fig.width=10}
-model1_trans = lm(crmrte ~sqrt(polpc) + sqrt(avgsen) + prbarr + sqrt(prbconv) + prbpris + sqrt(density) + urban + (polpc * urban) +
-              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban), data=raw_data)
+model1_trans = lm(crmrte ~sqrt(polpc) + sqrt(avgsen) + prbarr + sqrt(prbconv) + prbpris + sqrt(density) +
+                    urban + ((polpc) * urban) + ((avgsen) * urban) + (prbarr * urban) + 
+                    ((prbconv) * urban) + (prbpris * urban), data=raw_data)
 summary(model1_trans)
+par(mfrow = c(1,2))
+plot(model1_trans, which = c(1,2))
 anova(model1, model1_trans)
+# ?waldtest
+# waldtest(model1, model1_trans, vcov = vcovHC)
 ```
 *some evidence to reject the null hypothesis that model 1 has same explanatory power as model with transformed variables*
 
