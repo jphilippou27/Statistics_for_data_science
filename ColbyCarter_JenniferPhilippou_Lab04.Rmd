@@ -220,15 +220,10 @@ Based on these three initial OLS regression models, before controlling for non-c
 
 ##Increasing Explanatory Power with Unbiased Controls
 
-After determining the explantory features that are most mallelable to public policy, we look to identify the variables that are more difficult to influence, but nevertheless bare important relationships within the dataset. The distinguishing characteristics of theses explantory features is their ability to increase the amount of variability explained while not introducing bias and violating any of the six aforementioned assumptions.
+After determining the explantory features that are most malleable to public policy, we look to identify the variables that are more difficult to influence, but nevertheless bare important relationships within the dataset. The distinguishing characteristics of theses explantory features is their ability to increase the amount of variability explained while not introducing bias and violating any of the six aforementioned assumptions.
 
-Model 1 focuses so specifically on crime and policy that it currently does not leverage much background information on each of the counties, and that is the objective of model 2. Starting with several demographic variables, introducing the tax revenue per capita enables us to understand the relative resources available within the counties. Traditionally wealthier communities tend to have more resources and less crime and we expect to see that trend in North Carolina. Another feature, the percentage of young males initmates 
-
-Finally the percentage minority 
-  - west, central (interact each with urban? not enough obs)
-  - mix? check if adds accuracy or increases bias
-
-we hypothesize ... We will then ...
+Model 1 focuses so specifically on crime and policy that it currently does not leverage much background information on each of the counties, and that is the objective of model 2. Starting with a demographic variable, introducing the tax revenue per capita to the model will enable an understanding of the relative resources available within the counties. Traditionally wealthier communities tend to have more resources and less crime and we expect to see that trend in North Carolina. Another demographic feature is the percentage of young males, the classic perpetrator of crime; naturally we anticipate a positive coefficient. Finally we have the bedrock of demographic information, the percentage of the population that's a minority, and we hypothesize that as diversity increases crime will too. A higher level characteristic of the counties is what region they belong to; however without more subject matter expertise its difficult to anticpate a trend. Outside of the demographic variables, we have added the crime mix variable which delineates the more violent crimes (face to face) with the less interactive counterpart (other -- think theft). The crime mix is difficult to control with public policy because its a facet of human nature, and didn't make it into model 1 because of that, but it could provide significant insight into crime rates. Typically cities have a reputation for more violent crimes and we expect to an interaction between the urban indicator and the mix variable.  ###more on interactions...?
+  
 $$
 crmrte = \beta_0 + \beta_1 polpc + \beta_2 avgsen + \beta_3 prbarr + \beta_4 prbconv + \beta_5 prbpris + \beta_6 density  + \beta_7 urban + \\
           \beta_8 (polpc * urban) + \beta_9  (avgsen * urban) + \beta_{10}  (prbarr * urban) + \\
@@ -240,15 +235,17 @@ $$
 model2 = lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
               (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west + central + pctymle + pctmin80 + mix + missingLabel, data=raw_data)
 model2
-summary(model2)
+#summary(model2)
 ```
-adding interactions for model 2:
-model 2 with interactions not statistically different according to anova test, but vanilla model 2 is. residuals vs fitted = a little iffy...
-
+Adding interactions for model 2:
 ```{r}
 model2_rest <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
               (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west+ central + pctymle + pctmin80 + mix + (west*polpc)+ (central*polpc) + (central * mix) + (west*mix) + (urban*mix) + (urban*taxpc) + (taxpc*west), data=raw_data)
-summary(model2_rest)
+```
+Comparing Model versions:
+The control variables added to model 2 clearly enhanced the model. The output below shows an increase in adjusted R-squared from 0.70 to 0.82 and the anova test confirms the modesl is statistically significant so we reject the null hypthesis that the models are the same. Finally, model 2 also introduces the minority rate and it is highly statistically significant with a tiny p-value (although the power is very low). The results from the 2nd iteration of model 2 (includes the interactions) compared with the first version of model 2 are strikingly different. The model adjusted R-square moves less than 1/100th of a point and the anova test confirms the models are not significantly different. 
+```{r}
+#summary(model2_rest)
 stargazer(model1, model2, model2_rest, type = "text", report = "vcs*",
           header = FALSE,
           title = "Comparison of Key Crime Determinants Only",
@@ -256,28 +253,27 @@ stargazer(model1, model2, model2_rest, type = "text", report = "vcs*",
  anova(model1, model2)
  anova(model2, model2_rest )
 ```
-testing assumptions model 2
+
+A quick note on the assumptions of the versions on model2: 
+After running the diagnostic plots, we have additional evidence to reject the version of model2 that has the interactions. Introducing interactions causes the model to have heterosckedacity (shown by a clear upward trend in the scale-location plot), reduces the normallity in the Q-plot, and has 8 points with leverage above 1. Given the number of variables in the model it must be overfitting. The more parsimonious version of model 2 does not engender violated assumptions and showed results similar to model1 where the assumptions are not violated.
+
+The results of the model comparison and the assumptions analysis both concur that the simpler version of model2 should be the go forward model. 
 ```{r, fig.height = 5, fig.width = 10}
-#test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
+#light version of model2
 par(mfrow = c(2,3))
 plot(model2, which = c(1,2,3,5))
 acf(model2$residuals)
 pacf(model2$residuals)
-```
-```{r}
-#residualPlots(model2)
-```
-
-
-
-Introducing interactions causes the model to have heterosckedacity, 5+ points with leverage above 1 and might be overfitting the data...is that enough of a reason to drop them?
-```{r, fig.height = 5, fig.width = 10}
-#test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
+#model 2 (interactions)
 par(mfrow = c(2,3))
 plot(model2_rest, which = c(1,2,3,5))
 #residualPlots(model2)
 acf(model2_rest$residuals)
 pacf(model2_rest$residuals)
+```
+```{r}
+#takes forever to run because of the number of variables
+#residualPlots(model2)
 ```
 
 
