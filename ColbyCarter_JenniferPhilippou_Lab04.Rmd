@@ -157,31 +157,30 @@ $$
 ```{r}
 model1 = lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
               (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban), data=raw_data)
-summary(model1)
+# summary(model1)
 ```
 
 From this regression output, we see we have fairly strong explanatory power of our sample, with approximately 75% of the variation in crime rate explained by the model, with several statistically significant relationships. We now test the six key assumptions of classical linear modeling:
 
--1.) Linearity in parameters
--2.) Random sample
--3.) No perfect collinearity
--4.) Zero conditional mean
--5.) Homoskedasticity
--6.) Normality of errors
+  1.) Linearity in parameters
+  2.) Random sample
+  3.) No perfect collinearity
+  4.) Zero conditional mean
+  5.) Homoskedasticity
+  6.) Normality of errors
 
 For assumptions #1-#3, we can treat each as satisfied given our population model definition: the coefficients we are estimated are strictly linear and the variables come from a cross-sectional dataset of county level data from 1987; while the sample is not randomly selected, it contains all the available cross-sections and is populated fully. Lastly, we know there is no perfect multicollinearity, as no fields can be derived from the values in another field; this is confirmed by our correlation matrix above where no variables are perfectly correlated, and the trivial fact that the model ran with no variables forced out. 
 
 We then must confirm that the expected values of our errors are all zero for any given observation and variable, as well as the homoskedasticity and normality of the errors. Looking at the first plot of residuals versus observed crime rate values, we see the fitted line of expected residuals (red) closely following zero on our residual axis, with no obvious trend as the observed crime rate values increase. Similarly, the Pearson residuals for each independent variable have expectation roughly tracking the zero line, thus not producing evidence that we do not have zero-conditional mean of the errors. However, we do see a couple data points with high leverage with Cook's distances approaching 1 (Chart: Residuals vs Leverage), likely due to the right-skew of both our depend variable and several covariates; we test a model with skewed variables transformed to more normal sample distributions shortly.
 
-Looking at these same plots, we also do not see reason to believe there is heteroskedasticity in these data, where there would be distinct differences in variation of the errors dependendent about the value of the underlying variables; while we do see clustering of the fitted values due to skew of the underlying variables, this does not appear to lead to differences in variance across the errors. And lastly, we can look to the Q-Q plot of the standardized residuals against the line that would represent a normal distribution and see that the residuals do appear to be close to normal, with a few points deviating from the line at the tales.
+Looking at these same plots, we also do not see reason to believe there is heteroskedasticity in these data, where there would be distinct differences in variation of the errors dependendent about the value of the underlying variables; while we do see clustering of the fitted values due to skew of the underlying variables, this does not appear to lead to large differences in variance across the errors, with any trends being pulled by values at the extremes. And lastly, we can look to the Q-Q plot of the standardized residuals against the line that would represent a normal distribution and see that the residuals do appear to be close to normal, with a few points deviating from the line at the tales.
 [INTERPRET ACF AND PACF CHARTS]
 
-```{r, fig.height = 5, fig.width = 10}
+```{r, fig.height = 8, fig.width = 10}
 test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
 par(mfrow = c(1,2))
 plot(model1, which = 1)
 plot(model1, which = 5)
-#NEED TO REFORMAT PEARSON RESIDUAL PLUTS SO THE LEFT AXIS SCALES ARE MORE CLEAR--I CONTINUE TO BE TERRIBLE AT FORMATTING CHARTS IN R (CMC)
 residualPlots(model1)
 plot(model1, which = 2)
 acf(model1$residuals)
@@ -201,6 +200,7 @@ anova(model1, model1_excl)
 ```
 
 Since we also noted the right skew of several of the independent variables, we consider whether the model is signifcantly improved when transforming these variables with the square root function. In this case, while the ANOVA test does suggest there is modest evidence to reject the null that the full model has the same explanatory power as the model with transformed variables, the improvement does not appear to be strong enough to warrant the interpretation of square-roots of key variables. Further, looking at the Q-Q plot of standardized residuals, we still see similar approximate normality to the original model, still with some deviation from the normal curve at the extremes:
+
 ```{r, fig.width=10}
 model1_trans = lm(crmrte ~sqrt(polpc) + sqrt(avgsen) + prbarr + sqrt(prbconv) + prbpris + sqrt(density) +
                     urban + ((polpc) * urban) + ((avgsen) * urban) + (prbarr * urban) + 
@@ -212,10 +212,13 @@ anova(model1, model1_trans)
 # ?waldtest
 # waldtest(model1, model1_trans, vcov = vcovHC)
 ```
-*some evidence to reject the null hypothesis that model 1 has same explanatory power as model with transformed variables*
+
+###Summary of Key Crime Determinants Model
+
+Based on these three initial OLS regression models, before controlling for non-crime related control variables, we see several noteworth effects that could influence the direction of public policy. At a high level, we see crime increase as population density increases, and correspondingly, stronger enforcement--or higher likelhood of conviction and prison--in urban counties is associated with the largest decreases in crime rate. On the other hand, we see a moderately significant *positive* relationship between police per capita, which is likely reflective of a dual-causality problem: counties facing high crime rates may be responding by *then* increasing their policing presence. While we do proceed cautiously given the low sample size of our *urban* counties, the most effective allocation of resources to combat high crime rates would be improve the capabilities of law enforcement to bring convictions and put violent criminals in jail. There appears to be less of an effect from either increasing police staff volume, but with some effect from increasing sentence duration. Given these relationships, however, we need to test robustness by controlling for other factors, including demographic and economic variables.
 
 
-##Model 2 - increases accuracy without bias (controls)
+##Increasing Explanatory Power with Unbiased Controls
 
 After determining the explantory features that are most mallelable to public policy, we look to identify the variables that are more difficult to influence, but nevertheless bare important relationships within the dataset. The distinguishing characteristics of theses explantory features is their ability to increase the amount of variability explained while not introducing bias and violating any of the six aforementioned assumptions.
 
@@ -277,20 +280,20 @@ acf(model2_rest$residuals)
 pacf(model2_rest$residuals)
 ```
 
-##Model 3 - robustness 
-```{r}
-model3 = lm(crmrte ~ polpc + density + (polpc * urban) + avgsen + prbarr +prbconv +prbpris + taxpc + west+ central + pctymle + pctmin80 + mix + wcon +wtuc + wtrd + wfir+ wser +wmfg +wfed +wsta +wloc, data=raw_data)
-model3
-summary(model3)
-```
 
-testing for interactions(can't keep in final lab, but good to know...):
+##Testing Robustness with All Covariates Included
+
+Having focused on the key determinants of crime from our available data while controlling for influential regional, demographic and economic factors, we now turn to including the remainder of our available variables in order to both maximize explanatory power of our model while testing whether the robustness of our original crime determinants hold, or whether there are strong biases generated by these other variables or omitted variables.
+
 ```{r}
-model_test = lm(crmrte ~ urban + west+central+ density+taxpc, data = raw_data)
-summary(model_test)
-step <- step(model_test, ~.^2)
-step_output <- step$anova
-write.csv(step_output, "Step2variables2.csv")
+model3 <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) + (avgsen * urban) + (prbarr * urban) +
+              (prbconv * urban) + (prbpris * urban) + taxpc + west+ central + pctymle + pctmin80 + mix + 
+              wcon +wtuc + wtrd + wfir+ wser +wmfg +wfed +wsta +wloc, data=raw_data)
+# summary(model3)
+stargazer(model3, model1, type = "text", report = "vcs*",
+          header = FALSE,
+          title = "Comparison of Full Model to Key Crime Determinants Only",
+          star.cutoffs = c(0.05, 0.01, 0.001))
 ```
 
 
@@ -301,6 +304,7 @@ county specifics:
 -Age distribution (older communities?)
 -Crime reporting rate (if the data isn't captured it LOOKS safer)
 -Recidivism rate vs rehabilitation programs quality
+-divorce rates/single parent homes
 
 Crime specifics
 -Only a few industries are represented for wage (overall measure would be helpful)
