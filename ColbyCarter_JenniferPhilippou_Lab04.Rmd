@@ -31,7 +31,7 @@ require(Hmisc)
 ```{r, include = F}
 wd <- setwd("/Users/Colby/Documents/Berkeley/203_Statistics/Lab_04")
 # wd <- setwd("C:/Users/N0209810/Documents/Personal/Grad SChool/Courses/W203_stats")
-setwd("~/Berkeley/W203/Labs")
+# setwd("~/Berkeley/W203/Labs")
 raw_data <- read.csv("crime.csv")
 head(raw_data)
 ```
@@ -115,13 +115,13 @@ Scatterplot matrix Part II
 scatterplotMatrix(raw_data[c(4, 18:26)])
 ```
 
-Correlation between all the features:
+####Correlation between all the features:
 There is a high positive correlation between the crime rate and density (0.73), and a moderate relationship between the crime rate and urban variabless (0.61). There is also a moderately strong relationship between the probability of arrest and the mix (0.57). The west region and percentage minority has the lowest negative correlation (0.63), but given the binary value for west the spearman isn't super meaningful because of the number of ties in the ranking. Density is positively correlated with urban (0.8) and the federal wage(0.58). Amongst the wage values we see many moderate correlations. For example, the wage for construction has a 0.56 correlation with the wage for local gov. workers. Another example is the mild correlation between federal workers and the crime rate (0.59), density(0.58), wage for retail (0.62), wage for the service industry (0.58), wage for Finanace and insurance (0.59), and the wage for local workers (0.54).
 ```{r}
 correlationMatrix = round(cor(raw_data[c(4:26)], use="pairwise.complete.obs"),2)
 ```
 
-Correlation visual between selected variables (excluding binary variables)
+####Correlation visual between selected variables (excluding binary variables)
 ```{r, fig.width =12, fig.height = 10}
 panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
 {   usr <- par("usr"); on.exit(par(usr))
@@ -175,23 +175,26 @@ We then must confirm that the expected values of our errors are all zero for any
 
 Looking at these same plots, we also do not see reason to believe there is heteroskedasticity in these data, where there would be distinct differences in variation of the errors dependendent about the value of the underlying variables; while we do see clustering of the fitted values due to skew of the underlying variables, this does not appear to lead to large differences in variance across the errors, with any trends being pulled by values at the extremes. And lastly, we can look to the Q-Q plot of the standardized residuals against the line that would represent a normal distribution and see that the residuals do appear to be close to normal, with a few points deviating from the line at the tales.
 
-```{r, fig.height = 8, fig.width = 10}
+```{r, fig.height = 4, fig.width = 10}
 test_resids <- data.frame(model1$fitted.values,model1$residuals, raw_data$urban)
-par(mfrow = c(1,2))
+par(mfrow = c(1,3))
 plot(model1, which = 1)
 plot(model1, which = 5)
-residualPlots(model1)
 plot(model1, which = 2)
+```
+
+```{r, fig.height = 8, fig.width = 10}
+residualPlots(model1)
 # acf(model1$residuals)
 # pacf(model1$residuals)
 ```
 
-While it would appear that interacting the $urban$ indicator with our key crime covariates would absorb much of the effects of those variables, we should test the bias that omitting them would introduce as well as whether the explanatory power is signifcantly improved by adding them. By running the model with omitted interaction terms, we see below that the coefficients to our raw numeric variables are for the most part unchanged, while several of our interaction terms have strongly significant effects. However, by running an F-test on the two models, we do not see evidence that the full model has significantly more explanatory power than the restricted model with interaction terms removed ($p = .08$), so for purposes of strictly keeping key determinants of crime without sacrificing explanatory power, we would omit these terms and keep the restricted model:
+While it would appear that interacting the $urban$ indicator with our key crime covariates would absorb much of the effects of those variables, we should test the bias that omitting them would introduce as well as whether the explanatory power is signifcantly improved by adding them. By running the model with omitted interaction terms, we see below that the coefficients to our raw numeric variables are for the most part unchanged, while several of our interaction terms have strongly significant effects. However, by running an F-test on the two models, we do not see strong evidence that the full model has significantly more explanatory power than the restricted model with interaction terms removed ($p = .08$), so for purposes of strictly keeping key determinants of crime without sacrificing explanatory power, we would omit these terms and keep the restricted model:
 
-```{r, echo=FALSE, results='asis'}
+```{r, results='asis'}
 model1_excl <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban, data=raw_data)
 # summary(model1_excl)
-stargazer(model1, model1_excl, type = "text", report = "vcs*",
+stargazer(model1, model1_excl, type = "latex", report = "vcs*",
           header = FALSE,
           column.labels = c("Full Model","Restricted Model"),
           title = "Comparison of Key Crime Determinants Only",
@@ -199,7 +202,7 @@ stargazer(model1, model1_excl, type = "text", report = "vcs*",
 anova(model1, model1_excl)
 ```
 
-Since we also noted the right skew of several of the independent variables, we consider whether the model is signifcantly improved when transforming these variables with the square root function. Looking at the Q-Q plot of standardized residuals, we still see similar approximate normality to the original model, still with some deviation from the normal curve at the extremes. However, the improvement does not appear to be strong enough to warrant the interpretation of square-roots of key variables:
+Since we also noted the right skew of several of the independent variables, we consider whether the model is signifcantly improved when transforming these variables with the square root function. However, there now appears to be somewhat of a curved relationship between our residuals and observed crime rates, calling into question our assumption of zero-conditional mean of the errors. Looking at the Q-Q plot of standardized residuals, we continue to see similar approximate normality to the original model, still with some deviation from the normal curve at the extremes. Overall, the improvement does not appear to be strong enough to warrant the interpretation of square-roots of key variables:
 
 ```{r, fig.width=10}
 model1_trans = lm(crmrte ~sqrt(polpc) + sqrt(avgsen) + prbarr + sqrt(prbconv) + prbpris + sqrt(density) +
@@ -222,27 +225,31 @@ Model 1 focuses so specifically on crime and policy that it currently does not l
   
 $$
 crmrte = \beta_0 + \beta_1 polpc + \beta_2 avgsen + \beta_3 prbarr + \beta_4 prbconv + \beta_5 prbpris + \beta_6 density  + \beta_7 urban + \\
-          \beta_8 (polpc * urban) + \beta_9  (avgsen * urban) + \beta_{10}  (prbarr * urban) + \\
-          \beta_{11} (prbconv * urban) + \beta_{12}  (prbpris * urban)+ \beta_{13} taxpc +\beta_{14}west + \beta_{15}central + \beta_{16}MissingLabel + \beta_{17}pctymle + \beta_{18}pctmin80 + \beta_{19}mix +  u
+          \beta_8 (polpc * urban) + \beta_9  (avgsen * urban) + \beta_{10}  (prbarr * urban) + \beta_{11} (prbconv * urban) + \\
+          \beta_{12}  (prbpris * urban)+ \beta_{13} taxpc +\beta_{14}west + \beta_{15}central + \beta_{16}MissingLabel + \beta_{17}pctymle + \\
+          \beta_{18}pctmin80 + \beta_{19}mix + u
 $$
 
   
 ```{r}
 model2 = lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
-              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west + central + pctymle + pctmin80 + mix + missingLabel, data=raw_data)
-model2
-#summary(model2)
+              (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west + central + 
+              pctymle + pctmin80 + mix + missingLabel, data=raw_data)
+# model2
+# summary(model2)
 ```
-Adding interactions for model 2:
+
+####Adding interactions for model 2:
 ```{r}
 model2_rest <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) +
               (avgsen * urban) + (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west+ central + pctymle + pctmin80 + mix + (west*polpc)+ (central*polpc) + (central * mix) + (west*mix) + (urban*mix) + (urban*taxpc) + (taxpc*west), data=raw_data)
 ```
-Comparing Model versions:
+
+####Comparing Model versions:
 The control variables added to model 2 clearly enhanced the model. The output below shows an increase in adjusted R-squared from 0.70 to 0.82 and the anova test confirms the modesl is statistically significant so we reject the null hypthesis that the models are the same. Finally, model 2 also introduces the minority rate and it is highly statistically significant with a tiny p-value (although the power is very low). The results from the 2nd iteration of model 2 (includes the interactions) compared with the first version of model 2 are strikingly different. The model adjusted R-square moves less than 1/100th of a point and the anova test confirms the models are not significantly different. 
-```{r}
+```{r, results='asis'}
 #summary(model2_rest)
-stargazer(model1, model2, model2_rest, type = "text", report = "vcs*",
+stargazer(model1, model2, model2_rest, type = "latex", report = "vcs*",
           header = FALSE,
           title = "Comparison of Key Crime Determinants Only",
           star.cutoffs = c(0.05, 0.01, 0.001))
@@ -250,10 +257,10 @@ stargazer(model1, model2, model2_rest, type = "text", report = "vcs*",
  anova(model2, model2_rest )
 ```
 
-A quick note on the assumptions of the versions on model2: 
+####A quick note on the assumptions of the versions on model2: 
 After running the diagnostic plots, we have additional evidence to reject the version of model2 that has the interactions. Introducing interactions causes the model to have heterosckedacity (shown by a clear upward trend in the scale-location plot), reduces the normallity in the Q-plot, and has 8 points with leverage above 1. Given the number of variables in the model it must be overfitting. The more parsimonious version of model 2 does not engender violated assumptions and showed results similar to model1 where the assumptions are not violated.
 
-The results of the model comparison and the assumptions analysis both concur that the simpler version of model2 should be the go forward model. 
+The results of the model comparison and the assumptions analysis both suggest that the simpler version of the control model should be the go forward model. 
 ```{r, fig.height = 5, fig.width = 10}
 #light version of model2
 par(mfrow = c(2,3))
@@ -267,24 +274,22 @@ plot(model2_rest, which = c(1,2,3,5))
 acf(model2_rest$residuals)
 pacf(model2_rest$residuals)
 ```
-```{r}
-#takes forever to run because of the number of variables
-#residualPlots(model2)
-```
 
 
 ##Testing Robustness with All Covariates Included
 
 Having focused on the key determinants of crime from our available data while controlling for influential regional, demographic and economic factors, we now turn to including the remainder of our available variables in order to both maximize explanatory power of our model while testing whether the robustness of our original crime determinants hold, or whether there are strong biases generated by these other variables or omitted variables.
 
-```{r}
+```{r, fig.height = 4, fig.width = 10}
 model3 <- lm(crmrte ~polpc + avgsen + prbarr + prbconv + prbpris + density + urban + (polpc * urban) + (avgsen * urban) +
               (prbarr * urban) + (prbconv * urban) + (prbpris * urban) + taxpc + west+ central + pctymle + pctmin80 + mix + 
-              wcon +wtuc + wtrd + wfir+ wser +wmfg +wfed +wsta +wloc, data=raw_data)
+              wcon +wtuc + wtrd + wfir +wmfg +wfed +wsta +wloc, data=raw_data)
 par(mfrow = c(1,2))
 plot(model3, which = c(1,2))
-# summary(model3)
-stargazer(model3, model2, model1_excl, type = "text", report = "vcs*",
+```
+
+```{r, results='asis'}
+stargazer(model3, model2, model1_excl, type = "latex", report = "vcs*",
           header = FALSE,
           column.labels = c("All Variables","Key Control Variables","Restricted Model"),
           title = "Comparison of Full Model with All Variables to Restricted Model",
@@ -292,29 +297,34 @@ stargazer(model3, model2, model1_excl, type = "text", report = "vcs*",
 anova(model2, model3)
 ```
 
-Immediately we see a relative increase in the $\text{R}^2$ in the all-inclusive model but no statistical significance from the newly-added wage variables. Further, we see that our most restricted model maintains approximately its same coefficients across the key crime determinants, and performing an F-test on the all-inclusive model and model with control variables, we do not see statistical evidence that the former is significantly improved in its fit to the sample.
 
-[DISCUSSION OF VARIABLES INTRODUCING BIAS TO KEY DETERMINANTS]
+Immediately we see a relative increase in the $\text{R}^2$ in the all-inclusive model but no statistical significance from the newly-added wage variables. Further, we see that our most restricted model maintains approximately its same coefficients across the key crime determinants. Performing an F-test on the all-inclusive model and model with control variables, we do not see statistical evidence that the former is significantly improved in its fit. However, we do see a minor changes to the coefficients of key crime determinants and wonder if those can be at least partly be explained by other variables in the model, leading to bias in the restricted models.
+
+Beginning with police per capita (*polpc*), we can similarly predict that level by using our remaining covariates from the full model. Looking at the magnitudes and significance levels of the new coefficients (below), we may have expected more of from *density*, percentage young male, or the likelihood of making arrests given a crime, but these relationships appear to be relatively small. So with stable and robust estimates of the coefficients for our key determinants, we turn to variables that we are unable to include in the model and the resulting bias they may inflict on our chosen variables.
+
+```{r}
+model_polpc <- lm(polpc ~ avgsen + prbarr + prbconv + prbpris + density + urban + taxpc + west+ central + pctymle + pctmin80 + mix + 
+              wcon +wtuc + wtrd + wfir+ wser +wmfg +wfed +wsta +wloc, data=raw_data)
+summary(model_polpc)
+```
 
 
-##Discussion on Limitations and Possible Omitted Variable Bias
-Thoughts on potentially missing variables/endogeneity:
-county specifics:
--Education levels
--Age distribution (older communities?)
--Crime reporting rate (if the data isn't captured it LOOKS safer)
--Recidivism rate vs rehabilitation programs quality
--divorce rates/single parent homes
+##Discussion of Limitations and Possible Omitted Variable Bias
 
-Crime specifics
--Only a few industries are represented for wage (overall measure would be helpful)
--Type of crime (property vs violent)
-      -violent: murder, rape, robbery, assult
-      -property: burgulary, theft
-      -misdemenor: vandalism, disorderly conduct, traffic violations
-      -other: drugs/alcohol
--X & Y coordinates of crimes (some streets are safer than others)
--Crime time (certian crimes have higher rate during the day vs night)
--Seasonality of crimes (summer vs winter)
+Missing from this analysis are a number of variables that almost certainly influence an individual's likelihood to commit crime, as well as the estimates of our key variables in each of the above models. Namely, in addition to controls for gender, geographical region and minority mix, we would want to control unemployment, education levels (high school and college degrees), and rates of divorse or single-parent homes. While our models suggest a positive relationship between crime rates and population density, these other variables routinely have an effect on individuals' crime propensities and tend to lag for many families in more urban environments. As a result, we likely have a positive bias, or an overstatement, of the effect of population density on crime rather than the *real* driving factors like economic opportunity and family stability. Correspondingly, we see a positive relationship between crime and police per capita, suggesting that simply hiring a larger police force is not causing a reversal in the real determinants of crime. Furthermore, these models do not capture the effectiveness of government-sponsored programs, such as rehabilitation, nor the true crime rate--as some more disjointed communities may be less likely to actually report certain or many crimes. It is these communities for which we would like to see the effectiveness of current policy before advocating to allocate significant resources to, say, densely populated regions of North Carolina.
+
 
 ##Conclusion
+
+We conclude that while there are limitations to the explanatory power of these models due to omitted key variables, the estimates coming from these models are sufficiently robust to narrow the policy discussion as well as avoid political platitudes such as expanding police force or strengthening sentencing laws. Instead, we see opportunity to improve local law enforcement's effectiveness in bringing convictions and enforcing the laws as they are written, with particular effort toward more densely-populated regions of the state. This initial analysis also points to further study of problems afflicting these urban areas, with likely carryover to the rest of the state as well. Specifically, the strong positive relationship between crime and density is likely a *causal* one between underlying factors like educational opportunity and family structure, factors that we do not observe in these data.
+
+
+
+##Appendix: Model Summary
+```{r, results='asis'}
+stargazer(model2, model1, model1_excl, type = "latex", report = "vcs*",
+          header = FALSE,
+          column.labels = c("Key Control Variables","Urban Interactions","Restricted Model"),
+          title = "Summary of Primary Models in Crime Rate Analysis",
+          star.cutoffs = c(0.05, 0.01, 0.001))
+```
