@@ -74,7 +74,6 @@ There are a handful of instances of very large outliers that tend to be associat
 raw_data$removalFlag = ifelse(raw_data$county == "55",1, #taxpayer
                               ifelse(raw_data$county == "133",1, #pctmale
                                      ifelse(raw_data$county == "115",1, 0))) #polpc
-                                            # ifelse(raw_data$county == "119",1,) -high density
 raw_data = subset(raw_data, raw_data$removalFlag !=1)
 ```
 
@@ -116,18 +115,24 @@ Scatterplot matrix Part II
 scatterplotMatrix(raw_data[c(4, 18:26)])
 ```
 
-correlation between selected variables (density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser): high level of overlap between urban and density
-```{r, fig.width =10, fig.height = 10}
+Correlation between all the features:
+There is a high positive correlation between the crime rate and density (0.73), and a moderate relationship between the crime rate and urban variabless (0.61). There is also a moderately strong relationship between the probability of arrest and the mix (0.57). The west region and percentage minority has the lowest negative correlation (0.63), but given the binary value for west the spearman isn't super meaningful because of the number of ties in the ranking. Density is positively correlated with urban (0.8) and the federal wage(0.58). Amongst the wage values we see many moderate correlations. For example, the wage for construction has a 0.56 correlation with the wage for local gov. workers. Another example is the mild correlation between federal workers and the crime rate (0.59), density(0.58), wage for retail (0.62), wage for the service industry (0.58), wage for Finanace and insurance (0.59), and the wage for local workers (0.54).
+```{r}
+correlationMatrix = round(cor(raw_data[c(4:26)], use="pairwise.complete.obs"),2)
+```
+
+Correlation visual between selected variables (excluding binary variables)
+```{r, fig.width =12, fig.height = 10}
 panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
 {   usr <- par("usr"); on.exit(par(usr))
     par(usr = c(0, 1, 0, 1))
-    r <- abs(cor(x, y))
+    r <- abs(cor(x, y,use="pairwise.complete.obs"))
     txt <- format(c(r, 0.123456789), digits = digits)[1]
     txt <- paste0(prefix, txt)
     if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
     text(0.5, 0.5, txt, cex = cex.cor * r)}
 
-pairs(~crmrte +density + taxpc + wtrd+pctymle +wfed +urban +prbarr+prbconv+west +mix +wser, data=raw_data, upper.panel=panel.cor, pch=20, main="Crime Variables Correlation Scatterplot Matrix")
+pairs(~crmrte +polpc + density + avgsen + prbarr +prbconv +prbpris + taxpc + pctymle + pctmin80 + mix + wcon +wtuc + wtrd + wfir+ wser +wmfg +wfed +wsta +wloc, data=raw_data, upper.panel=panel.cor, pch=20,  main="Crime Variables Correlation Scatterplot Matrix")
 ```
 
 
